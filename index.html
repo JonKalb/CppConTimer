@@ -3,113 +3,124 @@
 <head>
   <meta charset="utf-8">
 <style>
-@import url('https://fonts.googleapis.com/css?family=Anonymous+Pro');
 
-body
-{
+@font-face {
+  font-family: 'time_display';
+  font-style: normal;
+  font-weight: 400;
+  src: local('Anonymous Pro Regular'), local('AnonymousPro-Regular'), url(https://fonts.gstatic.com/s/anonymouspro/v11/rP2Bp2a15UIB7Un-bOeISG3pHls28wP-4Ks.woff) format('woff');
+  unicode-range: U+0030-0039, U+0041-005A, U+0061-007A;
 }
 
-.time
-{
-    font-family: 'Anonymous Pro', sans-serif;    
+@font-face {
+  font-family: 'time_display';
+  font-style: normal;
+  src: local('sans-serif');
+  unicode-range: U+0000-002F, U+003A-0040, U+005B-0060, U+007B-FFFF;
 }
 
-.no_classes
-{
+#time_display_div {
+    width: 100vw;
+    height: 100vh;
+    text-align: center;
+}
+
+.verticalcenter {
+    position: relative;
+    top: 50%;
+    -webkit-transform: translateY(-50%);
+    -ms-transform: translateY(-50%);
+    transform: translateY(-50%);
+}
+
+#time_display_span {
+    font-family: 'time_display';
+}
+
+.no_classes {
     background-color: white;
     color: black;
 }
 
-.loading_text
-{
-    font-size: 25vw;
-}
-
-.showing_loading
-{
-    font-size: 25vw;
-}
-
-.showing_not_today
-{
-    font-size: 15vw;
-    line-height:15vw;
-}
-
-.showing_no_more
-{
-    font-size: 15vw;
-    line-height:15vw;
-}
-
-.showing_time
-{
-    font-size: 54vw;
-}
-
-.showing_two_digits
-{
-    font-size: 80vw;
-}
-
-.showing_three_digits
-{
-    font-size: 54vw;
-}
-
-.showing_four_digits
-{
-    font-size: 42vw;
-}
-
-.between_sessions
-{
+.between_sessions {
     background-color: green;
     color: white;
 }
 
-.between_sessions_late
-{
+.between_sessions_late {
     background-color: green;
     color: yellow;
 }
 
-.between_sessions_very_late
-{
+.between_sessions_very_late {
     background-color: green;
     color: red;
 }
 
-.in_session
-{
+.in_session {
     background-color: black;
     color: white;
 }
 
-.late
-{
+.late {
     background-color: black;
     color: yellow;
 }
 
-.very_late
-{
+.very_late {
     background-color: black;
     color: red;
 }
 
 </style>
 </head>
-<body class='insession showing_loading'>
-<div style="text-align: center; position: relative; top: -.25em" >
-<span style="width="100%" id="time_display">loading...</span>
+<body>
+<div id="time_display_div">
+    <div class="verticalcenter">
+        <span id="time_display_span">loading...</span>
+    </div>
 </div>
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.0/jquery.min.js"></script>
-
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.22.0/moment.min.js"></script>
 <script>
 
 function param(name) {
+    // Returns an empty string if the named parameter has not been provided.
+    // Incorrectly returns param('x') == 'y' for 'foo?wx=y'.
     return (location.search.split(name + '=')[1] || '').split('&')[0];
+}
+
+function bool_param(name, default_value) {
+    var value = param(name);
+    if (value == 'true' || value == 'yes' || value == '1') {
+        return true;
+    } else if (value == 'false' || value == 'no' || value == '0') {
+        return false;
+    } else {
+        return default_value;
+    }
+}
+
+function effective_fraction(span, div) {
+    var x = span.width() / div.width();
+    var y = span.height() / div.height();
+    return Math.max(x, y);
+}
+
+function update_display(msg) {
+    // Change the text of the time display, and massage the font size until it fills the screen.
+    var div = $('#time_display_div');
+    var span = $('#time_display_span');
+    var font_size = parseInt(span.css('font-size'));
+    span.text(msg);
+    while (effective_fraction(span, div) < 0.90) {
+        font_size += 10;
+        span.css('font-size', font_size + 'px');
+    }
+    while (effective_fraction(span, div) > 0.90) {
+        font_size -= 2;
+        span.css('font-size', font_size + 'px');
+    }
 }
 
 //Get 1 day in milliseconds
@@ -134,137 +145,86 @@ function zero_pad(num, size) {
 }
 
 // Given a time in the future, returns the number of hours (modulo days) from now.
-function hours(future_time)
-{
+function hours(future_time) {
     return Math.floor(((future_time.getTime() - Date.now()) % one_day) / one_hour);
 }
 
 // Given a time in the future, returns the number of minutes (modulo hours) from now.
-function minutes(future_time)
-{
+function minutes(future_time) {
     return Math.floor(((future_time.getTime() - Date.now()) % one_hour) / one_minute);
 }
 
 // Given a time in the future, returns the number of seconds (modulo minutes) from now.
-function seconds(future_time)
-{
+function seconds(future_time) {
     return Math.floor(((future_time.getTime() - Date.now()) % one_minute) / one_second);
 }
 
-function change_body_class(class_name)
-{
-    $(document.body).removeClass();
-    $(document.body).addClass(class_name);
-}
-
-function change_body_classes(class_names)
-{
-    $(document.body).removeClass();
-    
+function change_body_classes(class_names) {
+    $('#time_display_div').removeClass();
     var arrayLength = class_names.length;
-    for (var i = 0; i < arrayLength; i++)
-    {
-        $(document.body).addClass(class_names[i]);
+    for (var i = 0; i < arrayLength; i++) {
+        $('#time_display_div').addClass(class_names[i]);
     }
 }
 
-function no_sessions_today(why)
-{
-    change_body_classes(['no_classes', 'showing_not_today']);
-    $('#time_display').text(why);
+function no_sessions_today(msg) {
+    change_body_classes(['no_classes']);
+    update_display(msg);
 }
 
-function flash_background(body_class, showing_class)
-{
-    change_body_classes(['no_classes', showing_class]);
-    setTimeout(function(){change_body_classes([body_class, showing_class])}, 100);
-    setTimeout(function(){change_body_classes(['no_classes', showing_class])}, 200);
-    setTimeout(function(){change_body_classes([body_class, showing_class])}, 300);
-    setTimeout(function(){change_body_classes(['no_classes', showing_class])}, 400);
-    setTimeout(function(){change_body_classes([body_class, showing_class])}, 500);
-    setTimeout(function(){change_body_classes(['no_classes', showing_class])}, 600);
-    setTimeout(function(){change_body_classes([body_class, showing_class])}, 700);
-    setTimeout(function(){change_body_classes(['no_classes', showing_class])}, 800);
-    setTimeout(function(){change_body_classes([body_class, showing_class])}, 900);
+function flash_background(body_class) {
+    for (var i = 0; i < 1000; i += 200) {
+        setTimeout(function () { change_body_classes(['no_classes']) }, i);
+        setTimeout(function () { change_body_classes([body_class]) }, i + 100);
+    }
 }
 
-function build_time_string(hours, minutes, seconds, show_hours, show_seconds)
-{
-    var digits = 2;
+function build_time_string(hours, minutes, seconds, show_hours, show_seconds) {
     var hours_string = ''
     var minute_pad = 2;
-    if (show_hours && hours > 0)
-    {
+    if (show_hours && hours > 0) {
         // We assume no single session is one hundred hours or longer
-        digits += hours > 9? 2: 1;
-        hours_string = '<span class=\'time\'>' + hours.toString() + '</span>:'
-    }
-    else
-    {
-        if (hours > 0) // must not be in "show hours mode"
-        {
+        hours_string = hours.toString() + ':';
+    } else {
+        if (hours > 0) {
+            // must not be in "show hours mode"
             minutes += hours * 60
         }
-        if (minutes > 99) // We assume no single session is one thousand minutes or longer
-        {
+        if (minutes > 99) {
+            // We assume no single session is one thousand minutes or longer
             minute_pad = 3;
-            ++digits;
         }
-        if (minutes < 10)
-        {
+        if (minutes < 10) {
             minute_pad = 1;
-            --digits;
         }
     }
     var seconds_string = ''
-    if (show_seconds || (minutes < 10))
-    {
-        seconds_string = ':<span class=\'time\'>' + zero_pad(seconds, 2) + '</span>'
-        digits += 2;
+    if (show_seconds || (hours == 0 && minutes < 10)) {
+        seconds_string = ':' + zero_pad(seconds, 2)
     }
-    var time_string = hours_string + '<span class=\'time\'>' + zero_pad(minutes, minute_pad) + '</span>' + seconds_string
-    return [time_string, digits]
+    return hours_string + zero_pad(minutes, minute_pad) + seconds_string
 }
 
-function count_down(deadline, default_body_class, body_class_minutes, periodic_flashes, show_hours, show_seconds)
-{
+function count_down(deadline, default_body_class, body_class_minutes, periodic_flashes, show_hours, show_seconds) {
     var body_class = default_body_class
     var the_hours = hours(deadline);
     var the_minutes = minutes(deadline);
     var the_seconds = seconds(deadline);
-    var digits_shown = undefined;
-    var time_string = undefined;
-    for (var i = 0; i < body_class_minutes.length; i++)
-    {
-        if (((the_hours * 60) + the_minutes) < body_class_minutes[i].minutes)
-        {
-            body_class = body_class_minutes[i].body_class
+    for (var i = 0; i < body_class_minutes.length; i++) {
+        if (((the_hours * 60) + the_minutes) < body_class_minutes[i].minutes) {
+            body_class = body_class_minutes[i].body_class;
             break;
         }
     }
-    [time_string, digits_shown] = build_time_string(the_hours, the_minutes, the_seconds, show_hours, show_seconds);
-    $('#time_display').html(time_string);
-    showing_class = 'showing_two_digits'
-    switch (digits_shown)
-    {
-        case 3:
-            showing_class = 'showing_three_digits'
-            break;
-        case 4:
-            showing_class = 'showing_four_digits'
-            break;
-        default:
-            break;
-    }
-    change_body_classes([body_class, showing_class])
-    if (periodic_flashes && (the_seconds == 0 && (the_minutes % 5) == 0))
-    {
-        flash_background(body_class, showing_class);
+    var time_string = build_time_string(the_hours, the_minutes, the_seconds, show_hours, show_seconds);
+    update_display(time_string);
+    change_body_classes([body_class])
+    if (periodic_flashes && (the_seconds == 0 && (the_minutes % 5) == 0)) {
+        flash_background(body_class);
     }
 }
 
-function between_sessions(session_start, show_hours, show_seconds)
-{
+function between_sessions(session_start, show_hours, show_seconds) {
     count_down( session_start,
                 "between_sessions",
                 [{minutes:5, body_class:"between_sessions_very_late"}, {minutes:15, body_class:"between_sessions_late"}],
@@ -274,8 +234,7 @@ function between_sessions(session_start, show_hours, show_seconds)
     )
 }
 
-function in_session(session_end, show_hours, show_seconds)
-{
+function in_session(session_end, show_hours, show_seconds) {
     count_down( session_end,
                 "in_session",
                 [{minutes:5, body_class:"very_late"}, {minutes:15, body_class:"late"}],
@@ -285,37 +244,27 @@ function in_session(session_end, show_hours, show_seconds)
     )
 }
 
-function no_more_sessions()
-{
-    change_body_classes(['no_classes', 'showing_no_more']);
-    $('#time_display').html('<span style="line-height: 15vw;">-30-<br />the end</span>');
+function no_more_sessions() {
+    change_body_classes(['no_classes']);
+    update_display('the end');
     window.clearInterval(interval_ID);
 }
 
-function update_screen()
-{
-    show_hours = param('h') || false;
-    show_seconds = param('s') || false;
-    for (var i = 0, len = sessions.length; i < len; i++)
-    {
-        if (Date.now() < sessions[i].begin.getTime())
-        {
+function update_screen() {
+    show_hours = bool_param('show_hours', false);
+    show_seconds = bool_param('show_seconds', false);
+    for (var i = 0, len = sessions.length; i < len; i++) {
+        if (Date.now() < sessions[i].begin.getTime()) {
             var difference_ms = sessions[i].begin.getTime() - Date.now();
-            if (difference_ms > one_day)
-            {
+            if (difference_ms > one_day) {
                 no_sessions_today('no (more) sessions today');
                 return;
-            }
-            else
-            {
+            } else {
                 between_sessions(sessions[i].begin, show_hours, show_seconds);
                 return;
             }
-        }
-        else
-        {
-            if (Date.now() < sessions[i].end.getTime())
-            {
+        } else {
+            if (Date.now() < sessions[i].end.getTime()) {
                 in_session(sessions[i].end, show_hours, show_seconds);
                 return;
             }
@@ -324,66 +273,86 @@ function update_screen()
     no_more_sessions();
  }
 
-function get_sessions(json_data, track)
-{
+function get_sessions(json_data, track) {
     var arrayLength = json_data.length;
-    for (var i = 0; i < arrayLength; i++)
-    {
-        if (track != "" && json_data[i].hasOwnProperty("tracks"))
-        {
-            if (json_data[i]["tracks"].indexOf(track) < 0)
-            {
+    var sessions = [];
+    for (var i = 0; i < arrayLength; i++) {
+        if (track != "" && json_data[i].hasOwnProperty("tracks")) {
+            if (json_data[i]["tracks"].indexOf(track) < 0) {
                 continue;
             }
         }
         
         var session = json_data[i];
-
         var endDate = new Date(session.begin);
-
         session.begin = new Date(session.begin);
-
-        if (session.hasOwnProperty('end'))
-        {
+        if (session.hasOwnProperty('end')) {
             // Use `end` time.
             endDate = new Date(session.end);
-        }
-        else if (session.hasOwnProperty('duration'))
-        {
+        } else if (session.hasOwnProperty('duration')) {
            // Add `duration` time since beginning.
            endDate.setMinutes(endDate.getMinutes() + session.duration);
-        }
-        else
-        {
+        } else {
            // Add an hour from beginning time.
            endDate.setMinutes(endDate.getMinutes() + 60);
         }
-
         session.end = endDate;
-
         sessions.push(session);
     }
-    interval_ID = window.setInterval(update_screen, 1000)
+    return sessions;
 }
 
-var getJSON = function(url, callback) {
-    var xhr = new XMLHttpRequest();
-    xhr.open('GET', url, true);
-    xhr.responseType = 'json';
-    xhr.onload = function() {
-      var status = xhr.status;
-      if (status === 200) {
-        callback(null, xhr.response);
-      } else {
-        callback(status, xhr.response);
-      }
-    };
-    xhr.send();
-};
+function make_custom_session(endDate) {
+    return [{
+        begin: new Date(),
+        end: endDate,
+    }];
+}
 
-$.getJSON('http://www.whateverorigin.org/get?url=' + encodeURIComponent(param('json')) + '&callback=?', function(data){
-    get_sessions(data, param('track'));
-});
+function cors_proxy(url) {
+    // return 'https://www.whateverorigin.org/get?url=' + encodeURIComponent(url) + '&callback=?';
+    // return 'https://anyorigin.com/go?url=' + encodeURIComponent(url) + '&callback=?';
+    return 'https://allorigins.me/get?url=' + encodeURIComponent(url) + '&callback=?';
+}
+
+update_display('loading...');
+if (param('json') !== '') {
+    $.getJSON(cors_proxy(param('json')), function (data) {
+        try {
+            var json_data = JSON.parse(data.contents);
+            sessions = get_sessions(json_data, param('track'));
+            interval_ID = window.setInterval(update_screen, 1000);
+        } catch (ex) {
+            no_sessions_today('error loading JSON from ' + param('json'), ex);
+        }
+    });
+} else if (param('end') !== '') {
+    try {
+        var end_time = moment(param('end'), ['HH:mma', 'YYYY-MM-DD HH:mma']).toDate();
+        sessions = make_custom_session(end_time);
+        interval_ID = window.setInterval(update_screen, 1000);
+    } catch (ex) {
+        no_sessions_today('error parsing date ' + param('end'), ex);
+    }
+} else if (param('duration') !== '') {
+    try {
+        var duration = param('duration');
+        var end_time = new Date();
+        if (duration.endsWith('h')) {
+            end_time.setTime(end_time.getTime() + (parseFloat(duration) * one_hour));
+        } else if (duration.endsWith('s')) {
+            end_time.setTime(end_time.getTime() + (parseFloat(duration) * one_second));
+        } else {
+            end_time.setTime(end_time.getTime() + (parseInt(duration) * one_minute));
+        }
+        sessions = make_custom_session(end_time);
+        interval_ID = window.setInterval(update_screen, 1000);
+    } catch (ex) {
+        no_sessions_today('error parsing duration ' + param('duration'), ex);
+    }
+} else {
+    no_sessions_today('must provide `json` or `end` parameter');
+}
 
 </script>
 
